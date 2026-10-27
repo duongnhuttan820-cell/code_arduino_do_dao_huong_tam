@@ -521,3 +521,198 @@ if (finished) {
 return;
 }
 }
+//
+#define BUSY 2
+#define OS0 3
+#define OS1 4
+#define OS2 5
+#define ST_AB 6
+#define CS 7
+#define RD 8
+#define RST 9
+#define RAGE 10
+#define VI0 11
+#define DB0 22
+#define DB1 23
+#define DB2 24
+#define DB3 25
+#define DB4 26
+#define DB5 27
+#define DB6 28
+#define DB7 29
+#define DB8 30
+#define DB9 31
+#define DB10 32
+#define DB11 33
+#define DB12 34
+#define DB13 35
+#define DB14 36
+#define DB14 36
+#define DB15 37
+#define stepPin 44
+#define dirPin 45
+#define enPin 46
+#define CW 1
+#define CCW 0
+int stepsPerRevolution = 0;
+int count = 0;
+int sum = 0;
+String data="";
+int v1;
+short int AD[8] = {};
+void setup() {
+Serial.begin(9600);
+Serial1.begin(9600);
+pinMode(BUSY, INPUT);
+attachInterrupt(0,ReadAD7606, FALLING);
+pinMode(OS0,OUTPUT);
+pinMode(OS1,OUTPUT);
+pinMode(OS2,OUTPUT);
+pinMode(ST_AB,OUTPUT);
+pinMode(CS,OUTPUT);
+132
+pinMode(RD,OUTPUT);
+pinMode(RST,OUTPUT);
+pinMode(RAGE,OUTPUT);
+pinMode(VI0,OUTPUT);
+digitalWrite(RST,HIGH);delay(1);digitalWrite(RST,LOW);
+pinMode(DB0,INPUT);pinMode(DB1,INPUT);pinMode(DB2,INPUT);pinMode(DB3,I
+NPUT);
+pinMode(DB4,INPUT);pinMode(DB5,INPUT);pinMode(DB6,INPUT);pinMode(DB7,I
+NPUT);
+pinMode(DB8,INPUT);pinMode(DB9,INPUT);pinMode(DB10,INPUT);pinMode(DB11
+,INPUT);
+pinMode(DB12,INPUT);pinMode(DB13,INPUT);pinMode(DB14,INPUT);pinMode(DB
+15,INPUT);
+digitalWrite(OS0,HIGH);
+digitalWrite(OS1,HIGH);
+digitalWrite(OS2,LOW);
+digitalWrite(CS,LOW);
+digitalWrite(RD,HIGH);
+digitalWrite(ST_AB,HIGH);
+digitalWrite(RAGE,LOW);
+digitalWrite(VI0,HIGH);
+pinMode(stepPin, OUTPUT);
+pinMode(dirPin, OUTPUT);
+pinMode(enPin, OUTPUT);
+digitalWrite(enPin, LOW);
+}
+void ReadAD7606(void)
+{
+for(int i=0;i<2;i++)
+{
+digitalWrite(RD,LOW);
+delayMicroseconds(100);
+AD[i]=digitalRead(DB15)*32768+digitalRead(DB14)*16384+digitalRead(DB
+13)*8192+digitalRead(DB12)*4096+digitalRead(DB11)*2048+digitalRead(DB10)*1024+
+digitalRead(DB9)*512+digitalRead(DB8)*256+digitalRead(DB7)*128+digitalRead(DB6
+)*64+digitalRead(DB5)*32+digitalRead(DB4)*16+digitalRead(DB3)*8+digitalRead(DB
+2)*4+digitalRead(DB1)*2+digitalRead(DB0);
+digitalWrite(RD,HIGH);
+delayMicroseconds(100);
+}
+}
+void handleSerial1Command(String cmd) {
+cmd.trim();
+if (cmd == "@LEFT#") {
+while (true) {
+digitalWrite(ST_AB, LOW);
+delayMicroseconds(100);
+digitalWrite(ST_AB, HIGH);
+133
+float data_input = AD[0] * 5.0 / 32767.0;
+float convertdata = (data_input * 10.0 - 25.0) / 5.0;
+Serial.println(convertdata);
+if (convertdata > -0.3 && convertdata < 0.3) {
+delay(1000);
+Serial1.println("@pull#");
+delay(50);
+break;
+}
+delay(50);
+}
+return;
+}
+if (cmd == "@RIGHT#") {
+while (true) {
+digitalWrite(ST_AB, LOW);
+delayMicroseconds(100);
+digitalWrite(ST_AB, HIGH);
+float data_input = AD[1] * 5.0 / 32767.0;
+float convertdata = (data_input * 10.0 - 25.0) / 5.0;
+Serial.println(convertdata);
+if (convertdata > -0.3 && convertdata < 0.3) {
+delay(1000);
+Serial1.println("@press#");
+delay(50);
+break;
+}
+delay(50);
+}
+return;
+}
+if (cmd == "@SAMPLE#") {
+Serial.println("@SAMPLE#");
+delay(10);
+sum++;
+Serial.println(sum);
+digitalWrite(dirPin, CW);
+count = 0;
+for (int x = 0; x < stepsPerRevolution; x++) {
+count++;
+digitalWrite(stepPin, HIGH);
+delayMicroseconds(2000);
+digitalWrite(stepPin, LOW);
+delayMicroseconds(2000);
+134
+digitalWrite(ST_AB, LOW);
+delayMicroseconds(200);
+digitalWrite(ST_AB, HIGH);
+Serial.print("Sample");
+Serial.print(count);
+Serial.print(":");
+for (int i = 0; i < 2; i++) {
+float data_input = AD[i] * 5.0 / 32767.0;
+float convertdata_input = (data_input * 10.0 - 25.0) / 5.0;
+if (i == 0) {
+Serial.print("D1:");
+Serial.print(convertdata_input*0.475, 3);
+Serial.print("mm,");
+} else {
+Serial.print("D2:");
+Serial.print(convertdata_input*0.512, 3);
+Serial.println("mm");
+}
+}
+Serial.println();
+delayMicroseconds(5000);
+}
+Serial1.println("@SAMPLE_DONE#");
+return;
+}
+}
+void loop() {
+if (Serial.available()) {
+char ch = Serial.read();
+if (ch == '@') data = "";
+data += ch;
+if (ch == '#') {
+data.replace("@A1,", "");
+data.replace("#", "");
+v1 = data.toInt();
+stepsPerRevolution = v1;
+}
+}
+static String buf = "";
+while (Serial1.available()) {
+char c = Serial1.read();
+if (c == '#') {
+buf += c;
+handleSerial1Command(buf);
+buf = "";
+} else {
+135
+buf += c;
+}
+}
+}
